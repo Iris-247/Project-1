@@ -24,7 +24,7 @@ program project1
         hr(j) = r(j) + 0.5d0*(r(j+1) - r(j))
     end do
     hr(jmax) = r(jmax-1) + 0.5d0*(r(jmax-2) - r(jmax -1))
-    open(10, file='grid.dat')
+    open(unit=10, file='grid.dat', status='replace', action='write')
     do j = 1, jmax
         write(10,*) real(r(j)/kpc), real(hr(j)/kpc)
     end do
