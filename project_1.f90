@@ -1,58 +1,67 @@
 program project1
     implicit none
+
+    integer, parameter :: dp = selected_real_kind(15,307) !!use this precision
     integer, parameter :: jmax = 5000   !! dimension of the grid
-    real*8 :: r(jmax), hr(jmax), Vol(jmax)
-    real*8 :: rhonfw(jmax), Mdm(jmax), theoricalMdm(jmax)  !! variables, rhonwf is DM density NFW, Mdm is dark matter mass
-    real*8 :: x(jmax), y(jmax)
-    real*8 :: kpc, pi, rs, rhonfw0, Msun   !! constants (cgs)
-    real*8 :: rmin, rmax
+    
+    real(dp), parameter :: pi  = 3.141592653589793_dp
+
+    real(dp) :: r(jmax)
+    real(dp) :: rHalf(jmax-1), shellVol(jmax-1)
+    real(dp) :: rhoNFW(jmax-1)
+    real(dp) :: massDM(jmax), theoreticalMassDM(jmax) !! variables, rhoNFW is DM density NFW
+ 
+    real(dp) :: kpc, rmin, rmax, rs, rhoNFW0, Msun, dr, x
     integer :: j
 
-    kpc     = 3.084d21
-    pi      = 3.141592653589793d0
-    rmin    = 0.d0
-    rmax    = 3000.d0 * kpc
-    rs      = 435.7d0 * kpc
-    rhonfw0 = 7.35d-26
-    Msun    = 1.9885d33
+    kpc     = 3.084e21_dp
+    rmin    = 0.0_dp
+    rmax    = 3000.0_dp * kpc
+    rs      = 435.7_dp * kpc
+    rhoNFW0 = 7.35e-26_dp  
+    Msun    = 1.9885e33_dp   !! constants (cgs)
 
     !! step 1: building the grids (normal and half stepped)
+    dr = (rmax - rmin) / real(jmax - 1, dp)
+
     do j = 1, jmax
-        r(j) = rmin + (j-1)*rmax/(jmax-1)
+        r(j) = rmin + real(j - 1, dp) * dr
     end do
+    
+    ! Step 2: shell centers, volumes, and NFW density
     do j = 1, jmax - 1
-        hr(j) = r(j) + 0.5d0*(r(j+1) - r(j))
+        rHalf(j) = 0.5_dp * (r(j) + r(j+1))
+
+        shellVol(j) = (4.0_dp * pi / 3.0_dp) * (r(j+1)**3 - r(j)**3)
+
+        x = rHalf(j) / rs
+        rhoNFW(j) = rhoNFW0 / (x * (1.0_dp + x)**2)
     end do
-    hr(jmax) = r(jmax-1) + 0.5d0*(r(jmax-2) - r(jmax -1))
+
+    ! Step 3 :Grid output with left boundary and shell center, in kpc
     open(unit=10, file='grid.dat', status='replace', action='write')
-    do j = 1, jmax
-        write(10,*) real(r(j)/kpc), real(hr(j)/kpc)
+    do j = 1, jmax -1
+        write(10,'(2(1pe16.8))') r(j) / kpc, rHalf(j) / kpc
     end do
     close(10)
 
-    !! step 2.1 calculating the volume
-    do j = 1, jmax-1
-        Vol(j) = (4.d0*pi/3.d0) * (r(j+1)**3 - r(j)**3)  !! centering at half steps hr(j+1)
-    end do
-    Vol(jmax) = (4.d0*pi/3.d0) * r(jmax)**3
+    ! Step 4: enclosed DM mass at each grid boundary
+    massDM(1) = 0.0_dp
+    theoreticalMassDM(1) = 0.0_dp
 
-    !! step 2.2 calculate the NFW DM density profile (we can directly use halfgrid)
-    do j = 1, jmax
-        x(j) = hr(j) / rs    !! just for the formula to be clearer
-        rhonfw(j) = rhonfw0 / (x(j)*(1.d0 + x(j))**2)
-    end do
+    do j = 1, jmax - 1
+        massDM(j+1) = massDM(j) + rhoNFW(j) * shellVol(j)  !! numerical DM
 
-    !! step 2.3
-    open(20, file='mass.dat')
-    Mdm(1) = 0.d0
-    do j = 2, jmax
-        x(j) = r(j)/rs
-        y(j) = r(j)/(r(j)+rs)
-        Mdm(j) = Mdm(j-1) + rhonfw(j-1)*Vol(j-1)  !! numerical DM
-        theoricalMdm(j) = 4.d0*pi*rhonfw0*rs**3 * (log(1.d0+x(j)) - y(j))  !! theoretical DM
-        write(20,1000) r(j)/kpc, Mdm(j)/Msun, theoricalMdm(j)/Msun
+        x = r(j+1) / rs
+        theoreticalMassDM(j+1) = 4.0_dp * pi * rhoNFW0 * rs**3 * (log(1.0_dp + x) - x / (1.0_dp + x))  !! theoretical DM
+    end do
+    
+    ! Step 5: Output Columns with radius [kpc], numerical mass [Msun], theoretical mass [Msun]
+    open(unit=20, file='mass.dat', status='replace', action='write')
+        do j = 1, jmax
+        write(20, '(3(1pe16.8))') r(j) / kpc, &
+                                  massDM(j) / Msun, &
+                                  theoreticalMassDM(j) / Msun
     end do
     close(20)
-
-    1000 format(3(1pe12.4))
 end program project1
