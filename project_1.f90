@@ -1,27 +1,48 @@
 program project1
     implicit none
-
+    
+    integer :: j
+    
     integer, parameter :: dp = selected_real_kind(15,307) !!use this precision
     integer, parameter :: jmax = 5000   !! dimension of the grid
     
+    ! constant
     real(dp), parameter :: pi  = 3.141592653589793_dp
+    real(dp), parameter :: kpc   = 3.084e21_dp
 
+    real(dp), parameter :: Ggrav = 6.67430e-8_dp
+    real(dp), parameter :: kBoltz = 1.380649e-16_dp
+    real(dp), parameter :: mp = 1.6726219e-24_dp
+    
+    real(dp), parameter :: mu = 0.60_dp
+    real(dp), parameter :: Tgas = 8.9e7_dp
+    real(dp), parameter :: targetFb = 0.16_dp
+    
+    ! first part
     real(dp) :: r(jmax)
     real(dp) :: rHalf(jmax-1), shellVol(jmax-1)
     real(dp) :: rhoNFW(jmax-1)
     real(dp) :: massDM(jmax), theoreticalMassDM(jmax) !! variables, rhoNFW is DM density NFW
- 
-    real(dp) :: kpc, rmin, rmax, rs, rhoNFW0, Msun, dr, x
-    integer :: j
+    
+    real(dp) :: rmin, rmax, rs, rhoNFW0, Msun, dr, x
+    ! second part
+    integer :: jVir
+    
+    real(dp) :: rhoGas(jmax-1), rhoGasAnalytic(jmax-1)
+    real(dp) :: gasMass(jmax), rVir, fb
 
-    kpc     = 3.084e21_dp
+    real(dp) :: rhoGas0, hseFactor, x0, f0, f
+
     rmin    = 0.0_dp
     rmax    = 3000.0_dp * kpc
     rs      = 435.7_dp * kpc
     rhoNFW0 = 7.35e-26_dp  
-    Msun    = 1.9885e33_dp   !! constants (cgs)
+    Msun    = 1.9885e33_dp   !  (cgs)
 
-    !! step 1: building the grids (normal and half stepped)
+    rhoGas0 = 4.0e-26_dp
+    rVir = 2800.0_dp * kpc
+
+    ! step 1: building the grids (normal and half stepped)
     dr = (rmax - rmin) / real(jmax - 1, dp)
 
     do j = 1, jmax
@@ -64,4 +85,44 @@ program project1
                                   theoreticalMassDM(j) / Msun
     end do
     close(20)
+
+    ! Step 6 :Isothermal HSE solution with numerical and analytic profiles
+    hseFactor = 4.0_dp * pi * Ggrav * rhoNFW0 * rs**2 * mu * mp / (kBoltz * Tgas)
+
+    ! Set the first shell-center density using the central density rhoGas0
+    rhoGas(1) = rhoGas0
+
+    x0 = rHalf(1) / rs
+    f0 = 1.0_dp - log(1.0_dp + x0) / x0
+    rhoGasAnalytic(1) = rhoGas0 * exp(-hseFactor * f0)
+
+    ! Integrate HSE outward. Gas densities are at shell centers;
+    ! enclosed DM masses are at grid boundaries.
+    do j = 1, jmax - 2
+        rhoGas(j+1) = rhoGas(j) * exp( -dr * Ggrav * massDM(j+1) * mu * mp / (kBoltz * Tgas * r(j+1)**2) )
+
+        x = rHalf(j+1) / rs
+        f = 1.0_dp - log(1.0_dp + x) / x
+        rhoGasAnalytic(j+1) = rhoGas0 * exp(-hseFactor * f)
+    end do
+
+    ! Integrate gas mass over shells
+    gasMass(1) = 0.0_dp
+    do j = 1, jmax - 1
+        gasMass(j+1) = gasMass(j) + rhoGas(j) * shellVol(j)
+    end do
+
+    !Step 7: Baryon fraction at the nearest grid point to rVir
+    jVir = nint(rVir / dr) + 1
+    fb = gasMass(jVir) / (massDM(jVir) + gasMass(jVir))
+
+    write(*,*) "r at baryon-fraction check [kpc] =", r(jVir) / kpc
+    write(*,*) "Baryon fraction at rVir =", fb
+
+    open(unit=30, file='gas.dat', status='replace', action='write')
+    do j = 1, jmax - 1
+        write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j), rhoGasAnalytic(j)
+    end do
+    close(30)
+
 end program project1
