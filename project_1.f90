@@ -16,7 +16,6 @@ program project1
     
     real(dp), parameter :: mu = 0.60_dp
     real(dp), parameter :: Tgas = 8.9e7_dp
-    real(dp), parameter :: targetFb = 0.16_dp
     
     ! first part
     real(dp) :: r(jmax)
@@ -33,6 +32,12 @@ program project1
 
     real(dp) :: rhoGas0, hseFactor, x0, f0, f
 
+    ! Third part
+    real(dp) :: massBCG(jmax), massTotal(jmax)
+    real(dp) :: MBCG, aBCG
+    real(dp) :: targetFb 
+    real(dp) :: gasMassTarget
+
     rmin    = 0.0_dp
     rmax    = 3000.0_dp * kpc
     rs      = 435.7_dp * kpc
@@ -40,7 +45,11 @@ program project1
     Msun    = 1.9885e33_dp   !  (cgs)
 
     rhoGas0 = 4.0e-26_dp
+    targetFb = 0.16_dp
     rVir = 2800.0_dp * kpc
+    
+    MBCG =  1.0e12_dp * Msun
+    aBCG = (12.0_dp / (1.0_dp + sqrt(2.0_dp) ) )* kpc 
 
     ! step 1: building the grids (normal and half stepped)
     dr = (rmax - rmin) / real(jmax - 1, dp)
@@ -76,7 +85,7 @@ program project1
         x = r(j+1) / rs
         theoreticalMassDM(j+1) = 4.0_dp * pi * rhoNFW0 * rs**3 * (log(1.0_dp + x) - x / (1.0_dp + x))  !! theoretical DM
     end do
-    
+
     ! Step 5: Output Columns with radius [kpc], numerical mass [Msun], theoretical mass [Msun]
     open(unit=20, file='mass.dat', status='replace', action='write')
         do j = 1, jmax
@@ -122,6 +131,39 @@ program project1
     open(unit=30, file='gas.dat', status='replace', action='write')
     do j = 1, jmax - 1
         write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j), rhoGasAnalytic(j)
+    end do
+    close(30)
+
+    ! Step 8 :Isothermal HSE solution with BCG
+    do j = 1, jmax
+        massBCG(j) = MBCG * r(j)**2 / (r(j) + aBCG)**2
+        massTotal(j) = massDM(j) + massBCG(j)
+    end do
+
+    do j = 1, jmax - 2
+        rhoGas(j+1) = rhoGas(j) * exp( -dr * Ggrav * massTotal(j+1) * mu * mp / (kBoltz * Tgas * r(j+1)**2) )
+    end do
+
+    ! Integrate gas mass over shells
+    gasMass(1) = 0.0_dp
+    do j = 1, jmax - 1
+        gasMass(j+1) = gasMass(j) + rhoGas(j) * shellVol(j)
+    end do
+    
+    !Scale the gas profile to reach the target baryon fraction
+    gasMassTarget = targetFb / (1.0_dp - targetFb) * massDM(jVir) - massBCG(jVir)
+    
+    rhoGas0 = rhoGas0 * (gasMassTarget / gasMass(jVir))
+    rhoGas = rhoGas * (gasMassTarget / gasMass(jVir))
+    gasMass = gasMass * (gasMassTarget / gasMass(jVir))
+    
+    fb = (gasMass(jVir) + massBCG(jVir)) / (massDM(jVir) + massBCG(jVir) + gasMass(jVir))
+    
+    write(*,*) "Baryon fraction with BCG =", fb
+
+    open(unit=30, file='gas_BCG.dat', status='replace', action='write')
+    do j = 1, jmax - 1
+        write(30, '(2(1pe24.16))') rHalf(j) / kpc, rhoGas(j)
     end do
     close(30)
 
