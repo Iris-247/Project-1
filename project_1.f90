@@ -89,9 +89,7 @@ program project1
     ! Step 5: Output Columns with radius [kpc], numerical mass [Msun], theoretical mass [Msun]
     open(unit=20, file='mass.dat', status='replace', action='write')
         do j = 1, jmax
-        write(20, '(3(1pe16.8))') r(j) / kpc, &
-                                  massDM(j) / Msun, &
-                                  theoreticalMassDM(j) / Msun
+        write(20, '(3(1pe16.8))') r(j) / kpc, massDM(j) / Msun, theoreticalMassDM(j) / Msun
     end do
     close(20)
 
@@ -130,7 +128,7 @@ program project1
 
     open(unit=30, file='gas.dat', status='replace', action='write')
     do j = 1, jmax - 1
-        write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j), rhoGasAnalytic(j)
+        write(30, '(4(1pe24.16))') rHalf(j) / kpc, rhoGas(j), rhoGasAnalytic(j) ,rhoNFW(j)
     end do
     close(30)
 
@@ -163,7 +161,7 @@ program project1
 
     open(unit=30, file='gas_BCG.dat', status='replace', action='write')
     do j = 1, jmax - 1
-        write(30, '(2(1pe24.16))') rHalf(j) / kpc, rhoGas(j)
+        write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j) , rhoNFW(j)
     end do
     close(30)
 

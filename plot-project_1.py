@@ -57,4 +57,39 @@ ax2.grid(True, which="both", linestyle=":")
 fig2.tight_layout()
 fig2.savefig("gas.png", dpi=300, bbox_inches="tight")
 
-plt.show()
+# Gas_BCG_comparation
+gas_no_bcg = np.loadtxt("gas.dat")
+gas_bcg = np.loadtxt("gas_BCG.dat")
+
+r_no_bcg = gas_no_bcg[:, 0]
+rho_no_bcg = gas_no_bcg[:, 1]
+
+r_bcg = gas_bcg[:, 0]
+rho_bcg = gas_bcg[:, 1]
+
+mask_no_bcg = (
+    np.isfinite(r_no_bcg)
+    & np.isfinite(rho_no_bcg)
+    & (r_no_bcg > 0)
+    & (rho_no_bcg > 0)
+)
+
+mask_bcg = (
+    np.isfinite(r_bcg)
+    & np.isfinite(rho_bcg)
+    & (r_bcg > 0)
+    & (rho_bcg > 0)
+)
+
+fig3, ax3 = plt.subplots(figsize=(7, 7))
+ax3.loglog(r_no_bcg[mask_no_bcg], rho_no_bcg[mask_no_bcg], "k-", lw=1.5, label="Without BCG")
+ax3.loglog(r_bcg[mask_bcg], rho_bcg[mask_bcg], "r-", lw=1.5, label="BCG")
+
+ax3.set_xlabel(r"Radius $r$ [kpc]")
+ax3.set_ylabel(r"Gas density $\rho_g$ [g cm$^{-3}$]")
+ax3.set_title("Isothermal Gas Density Profile with BCG and non-BCG")
+ax3.legend()
+ax3.grid(True, which="both", linestyle=":")
+
+fig3.tight_layout()
+fig3.savefig("gas_BCG_comparison.png", dpi=300, bbox_inches="tight")
