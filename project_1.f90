@@ -17,27 +17,33 @@ program project1
     real(dp), parameter :: mu = 0.60_dp
     real(dp), parameter :: Tgas = 8.9e7_dp
     
-    ! first part
+    real(dp), parameter :: Tmg = 8.9e7_dp
+    
+    ! Part 1: Grid and dark matter (NFW) profile
     real(dp) :: r(jmax)
     real(dp) :: rHalf(jmax-1), shellVol(jmax-1)
     real(dp) :: rhoNFW(jmax-1)
     real(dp) :: massDM(jmax), theoreticalMassDM(jmax) !! variables, rhoNFW is DM density NFW
     
-    real(dp) :: rmin, rmax, rs, rhoNFW0, Msun, dr, x
-    ! second part
+    real(dp) :: rmin, rmax, rs, rhoNFW0, Msun, dr, xs
+    ! Part 2: Isothermal gas hydrostatic equilibrium
     integer :: jVir
     
     real(dp) :: rhoGas(jmax-1), rhoGasAnalytic(jmax-1)
     real(dp) :: gasMass(jmax), rVir, fb
 
-    real(dp) :: rhoGas0, hseFactor, x0, f0, f
+    real(dp) :: rhoGas0, hseFactor, xs0, f0, f
 
-    ! Third part
+    ! Part 3: BCG contribution to the gravitational potential
     real(dp) :: massBCG(jmax), massTotal(jmax)
     real(dp) :: MBCG, aBCG
     real(dp) :: targetFb 
     real(dp) :: gasMassTarget
 
+    ! Part 4: Non-isothermal temperature profile
+    real(dp) :: temperature(jmax-1)
+    real(dp) :: r500 , x500
+        
     rmin    = 0.0_dp
     rmax    = 3000.0_dp * kpc
     rs      = 435.7_dp * kpc
@@ -50,6 +56,8 @@ program project1
     
     MBCG =  1.0e12_dp * Msun
     aBCG = (12.0_dp / (1.0_dp + sqrt(2.0_dp) ) )* kpc 
+    
+    r500 = 1400.0_dp * kpc
 
     ! step 1: building the grids (normal and half stepped)
     dr = (rmax - rmin) / real(jmax - 1, dp)
@@ -64,8 +72,8 @@ program project1
 
         shellVol(j) = (4.0_dp * pi / 3.0_dp) * (r(j+1)**3 - r(j)**3)
 
-        x = rHalf(j) / rs
-        rhoNFW(j) = rhoNFW0 / (x * (1.0_dp + x)**2)
+        xs = rHalf(j) / rs
+        rhoNFW(j) = rhoNFW0 / (xs * (1.0_dp + xs)**2)
     end do
 
     ! Step 3 :Grid output with left boundary and shell center, in kpc
@@ -82,8 +90,8 @@ program project1
     do j = 1, jmax - 1
         massDM(j+1) = massDM(j) + rhoNFW(j) * shellVol(j)  !! numerical DM
 
-        x = r(j+1) / rs
-        theoreticalMassDM(j+1) = 4.0_dp * pi * rhoNFW0 * rs**3 * (log(1.0_dp + x) - x / (1.0_dp + x))  !! theoretical DM
+        xs = r(j+1) / rs
+        theoreticalMassDM(j+1) = 4.0_dp * pi * rhoNFW0 * rs**3 * (log(1.0_dp + xs) - xs / (1.0_dp + xs))  !! theoretical DM
     end do
 
     ! Step 5: Output Columns with radius [kpc], numerical mass [Msun], theoretical mass [Msun]
@@ -99,8 +107,8 @@ program project1
     ! Set the first shell-center density using the central density rhoGas0
     rhoGas(1) = rhoGas0
 
-    x0 = rHalf(1) / rs
-    f0 = 1.0_dp - log(1.0_dp + x0) / x0
+    xs0 = rHalf(1) / rs
+    f0 = 1.0_dp - log(1.0_dp + xs0) / xs0
     rhoGasAnalytic(1) = rhoGas0 * exp(-hseFactor * f0)
 
     ! Integrate HSE outward. Gas densities are at shell centers;
@@ -108,8 +116,8 @@ program project1
     do j = 1, jmax - 2
         rhoGas(j+1) = rhoGas(j) * exp( -dr * Ggrav * massDM(j+1) * mu * mp / (kBoltz * Tgas * r(j+1)**2) )
 
-        x = rHalf(j+1) / rs
-        f = 1.0_dp - log(1.0_dp + x) / x
+        xs = rHalf(j+1) / rs
+        f = 1.0_dp - log(1.0_dp + xs) / xs
         rhoGasAnalytic(j+1) = rhoGas0 * exp(-hseFactor * f)
     end do
 
@@ -164,5 +172,13 @@ program project1
         write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j) , rhoNFW(j)
     end do
     close(30)
+    ! step 9 Non-isothermal temperature profile 
+    do j = 1, jmax - 1
+    x500 = rHalf(j) / r500
+    temperature(j) = Tmg * 1.35_dp * ((x500 / 0.045_dp)**1.9_dp + 0.45_dp) / ((x500 / 0.045_dp)**1.9_dp + 1.0_dp) / (1.0_dp + (x500 / 0.6_dp)**2)**0.45_dp
+    end do
+    do j = 1 , jmax - 2
+        rhoGas(j+1) = rhoGas(j) * temperature(j) / temperature(j+1) * exp(-dr * Ggrav * massDM(j+1) * mu * mp / (kBoltz * temperature(j) * r(j+1)**2))
+    end do
 
 end program project1

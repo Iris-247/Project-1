@@ -34,6 +34,7 @@ gas = np.loadtxt("gas.dat")
 r2 = gas[:, 0]
 numerical_gas = gas[:, 1]
 theoretical_gas = gas[:, 2]
+rho_dm = gas[:, 3]
 
 mask_gas = (
     np.isfinite(gas).all(axis=1)
@@ -42,11 +43,17 @@ mask_gas = (
     & (theoretical_gas > 0)
 )
 
+mask_dm = (
+    np.isfinite(r2) 
+    & np.isfinite(rho_dm) 
+    & (r2 > 0) 
+    & (rho_dm > 0)
+)
+
 fig2, ax2 = plt.subplots(figsize=(7, 7))
-ax2.loglog(r2[mask_gas], numerical_gas[mask_gas], "k-", lw=1.5,
-           label="Numerical HSE")
-ax2.loglog(r2[mask_gas], theoretical_gas[mask_gas], "r-", lw=1.5,
-           label="Analytical HSE")
+ax2.loglog(r2[mask_gas], numerical_gas[mask_gas], "k-", lw=1.5, label="Numerical HSE")
+ax2.loglog(r2[mask_gas], theoretical_gas[mask_gas], "r-", lw=1.5, label="Analytical HSE")
+ax2.loglog(r2[mask_dm], rho_dm[mask_dm], "b--", lw=1.5, label="DM density")
 
 ax2.set_xlabel(r"Radius $r$ [kpc]")
 ax2.set_ylabel(r"Gas density $\rho_g$ [g cm$^{-3}$]")
@@ -67,6 +74,8 @@ rho_no_bcg = gas_no_bcg[:, 1]
 r_bcg = gas_bcg[:, 0]
 rho_bcg = gas_bcg[:, 1]
 
+rho_dm = gas_bcg[:, 2]
+
 mask_no_bcg = (
     np.isfinite(r_no_bcg)
     & np.isfinite(rho_no_bcg)
@@ -81,9 +90,18 @@ mask_bcg = (
     & (rho_bcg > 0)
 )
 
+mask_dm = (
+    np.isfinite(r_bcg) 
+    & np.isfinite(rho_dm) 
+    & (r2 > 0) 
+    & (rho_dm > 0)
+)
+
+
 fig3, ax3 = plt.subplots(figsize=(7, 7))
 ax3.loglog(r_no_bcg[mask_no_bcg], rho_no_bcg[mask_no_bcg], "k-", lw=1.5, label="Without BCG")
 ax3.loglog(r_bcg[mask_bcg], rho_bcg[mask_bcg], "r-", lw=1.5, label="BCG")
+ax3.loglog(r_bcg[mask_dm], rho_dm[mask_dm], "b--", lw=1.5, label="DM density")
 
 ax3.set_xlabel(r"Radius $r$ [kpc]")
 ax3.set_ylabel(r"Gas density $\rho_g$ [g cm$^{-3}$]")
