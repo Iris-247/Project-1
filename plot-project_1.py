@@ -56,7 +56,7 @@ ax2.loglog(r2[mask_gas], theoretical_gas[mask_gas], "r-", lw=1.5, label="Analyti
 ax2.loglog(r2[mask_dm], rho_dm[mask_dm], "b--", lw=1.5, label="DM density")
 
 ax2.set_xlabel(r"Radius $r$ [kpc]")
-ax2.set_ylabel(r"Gas density $\rho_g$ [g cm$^{-3}$]")
+ax2.set_ylabel(r"Density $\rho_g$ [g cm$^{-3}$]")
 ax2.set_title("Isothermal Gas Density Profile")
 ax2.legend()
 ax2.grid(True, which="both", linestyle=":")
@@ -104,10 +104,78 @@ ax3.loglog(r_bcg[mask_bcg], rho_bcg[mask_bcg], "r-", lw=1.5, label="BCG")
 ax3.loglog(r_bcg[mask_dm], rho_dm[mask_dm], "b--", lw=1.5, label="DM density")
 
 ax3.set_xlabel(r"Radius $r$ [kpc]")
-ax3.set_ylabel(r"Gas density $\rho_g$ [g cm$^{-3}$]")
+ax3.set_ylabel(r"Density $\rho_g$ [g cm$^{-3}$]")
 ax3.set_title("Isothermal Gas Density Profile with BCG and non-BCG")
 ax3.legend()
 ax3.grid(True, which="both", linestyle=":")
 
 fig3.tight_layout()
 fig3.savefig("gas_BCG_comparison.png", dpi=300, bbox_inches="tight")
+
+# Gas_BCG_non-iso_comparation
+gas_no_bcg = np.loadtxt("gas.dat")
+gas_bcg = np.loadtxt("gas_BCG.dat")
+gas_bcg_non_iso = np.loadtxt("gas_BCG_non-iso.dat")
+
+r_no_bcg = gas_no_bcg[:, 0]
+rho_no_bcg = gas_no_bcg[:, 1]
+
+r_bcg = gas_bcg[:, 0]
+rho_bcg = gas_bcg[:, 1]
+
+rho_dm = gas_bcg[:, 2]
+
+r_bcg_non_iso = gas_bcg_non_iso[:, 0]
+rho_bcg_non_iso = gas_bcg_non_iso[:, 1]
+rho_dm_non_iso = gas_bcg_non_iso[:, 2]
+
+mask_bcg_non_iso = (
+    np.isfinite(r_bcg_non_iso)
+    & np.isfinite(rho_bcg_non_iso)
+    & (r_bcg_non_iso > 0)
+    & (rho_bcg_non_iso > 0)
+)
+
+mask_dm_non_iso = (
+    np.isfinite(r_bcg_non_iso)
+    & np.isfinite(rho_dm_non_iso)
+    & (r_bcg_non_iso > 0)
+    & (rho_dm_non_iso > 0)
+)
+
+mask_no_bcg = (
+    np.isfinite(r_no_bcg)
+    & np.isfinite(rho_no_bcg)
+    & (r_no_bcg > 0)
+    & (rho_no_bcg > 0)
+)
+
+mask_bcg = (
+    np.isfinite(r_bcg)
+    & np.isfinite(rho_bcg)
+    & (r_bcg > 0)
+    & (rho_bcg > 0)
+)
+
+mask_dm = (
+    np.isfinite(r_bcg) 
+    & np.isfinite(rho_dm) 
+    & (r2 > 0) 
+    & (rho_dm > 0)
+)
+
+fig4, ax4 = plt.subplots(figsize=(7, 7))
+ax4.loglog(r_no_bcg[mask_no_bcg], rho_no_bcg[mask_no_bcg], "k-", lw=1.5, label="Without BCG")
+ax4.loglog(r_bcg[mask_bcg], rho_bcg[mask_bcg], "r-", lw=1.5, label="BCG")
+ax4.loglog(r_bcg_non_iso[mask_bcg_non_iso], rho_bcg_non_iso[mask_bcg_non_iso], "r-", lw=1.5, label="BCG_non-iso")
+ax4.loglog(r_bcg_non_iso[mask_dm_non_iso],rho_dm_non_iso[mask_dm_non_iso], "b--", lw=1.5, label="DM density")
+
+ax4.set_xlabel(r"Radius $r$ [kpc]")
+ax4.set_ylabel(r"Density $\rho_g$ [g cm$^{-3}$]")
+ax4.set_title("Non-isothermal Gas Density Profile with BCG and non-BCG")
+ax4.legend()
+ax4.grid(True, which="both", linestyle=":")
+
+fig4.tight_layout()
+fig4.savefig("gas_BCG_non-iso_comparation.png", dpi=300, bbox_inches="tight")
+

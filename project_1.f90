@@ -172,13 +172,41 @@ program project1
         write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j) , rhoNFW(j)
     end do
     close(30)
+
     ! step 9 Non-isothermal temperature profile 
+    ! reset initial value
+    rhoGas0 = 4.0e-26_dp
+    rhoGas(1) = rhoGas0
+
     do j = 1, jmax - 1
     x500 = rHalf(j) / r500
     temperature(j) = Tmg * 1.35_dp * ((x500 / 0.045_dp)**1.9_dp + 0.45_dp) / ((x500 / 0.045_dp)**1.9_dp + 1.0_dp) / (1.0_dp + (x500 / 0.6_dp)**2)**0.45_dp
     end do
     do j = 1 , jmax - 2
-        rhoGas(j+1) = rhoGas(j) * temperature(j) / temperature(j+1) * exp(-dr * Ggrav * massDM(j+1) * mu * mp / (kBoltz * temperature(j) * r(j+1)**2))
+        rhoGas(j+1) = rhoGas(j) * temperature(j) / temperature(j+1) * exp(-dr * Ggrav * massTotal(j+1) * mu * mp / (kBoltz * temperature(j) * r(j+1)**2))
     end do
+    
+    ! Integrate gas mass over shells
+    gasMass(1) = 0.0_dp
+    do j = 1, jmax - 1
+        gasMass(j+1) = gasMass(j) + rhoGas(j) * shellVol(j)
+    end do
+
+    !Scale the gas profile to reach the target baryon fraction
+    gasMassTarget = targetFb / (1.0_dp - targetFb) * massDM(jVir) - massBCG(jVir)
+    
+    rhoGas0 = rhoGas0 * (gasMassTarget / gasMass(jVir))
+    rhoGas = rhoGas * (gasMassTarget / gasMass(jVir))
+    gasMass = gasMass * (gasMassTarget / gasMass(jVir))
+    
+    fb = (gasMass(jVir) + massBCG(jVir)) / (massDM(jVir) + massBCG(jVir) + gasMass(jVir))
+    
+    write(*,*) "Baryon fraction with BCG =", fb
+
+    open(unit=30, file='gas_BCG_non-iso.dat', status='replace', action='write')
+    do j = 1, jmax - 1
+        write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j) , rhoNFW(j)
+    end do
+    close(30)
 
 end program project1
