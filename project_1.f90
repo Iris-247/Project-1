@@ -7,8 +7,8 @@ program project1
     integer, parameter :: jmax = 5000   !! dimension of the grid
     
     ! constant
-    real(dp), parameter :: pi  = 3.141592653589793_dp
-    real(dp), parameter :: kpc   = 3.084e21_dp
+    real(dp), parameter :: pi = 3.141592653589793_dp
+    real(dp), parameter :: kpc = 3.084e21_dp
 
     real(dp), parameter :: Ggrav = 6.67430e-8_dp
     real(dp), parameter :: kBoltz = 1.380649e-16_dp
@@ -43,7 +43,11 @@ program project1
     ! Part 4: Non-isothermal temperature profile
     real(dp) :: temperature(jmax-1)
     real(dp) :: r500 , x500
-        
+    
+    ! Part 5: Non-isothermal temperature profile with turb
+    real(dp) :: rhoGasTurb(jmax-1), Pturb(jmax-1)
+    real(dp) :: velocity_turb
+
     rmin    = 0.0_dp
     rmax    = 3000.0_dp * kpc
     rs      = 435.7_dp * kpc
@@ -58,6 +62,8 @@ program project1
     aBCG = (12.0_dp / (1.0_dp + sqrt(2.0_dp) ) )* kpc 
     
     r500 = 1400.0_dp * kpc
+
+    velocity_turb = 5.0e7_dp 
 
     ! step 1: building the grids (normal and half stepped)
     dr = (rmax - rmin) / real(jmax - 1, dp)
@@ -206,6 +212,53 @@ program project1
     open(unit=30, file='gas_BCG_non-iso.dat', status='replace', action='write')
     do j = 1, jmax - 1
         write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGas(j) , rhoNFW(j)
+    end do
+    close(30)
+
+    ! step 10 Non-isothermal density profile with turburlence
+    ! reset initial value
+    rhoGas0 = 4.0e-26_dp
+    rhoGas(1) = rhoGas0
+    rhoGasTurb(1) = rhoGas(1)
+    
+    do j = 1, jmax - 1
+    x500 = rHalf(j) / r500
+    temperature(j) = Tmg * 1.35_dp * ((x500 / 0.045_dp)**1.9_dp + 0.45_dp) / ((x500 / 0.045_dp)**1.9_dp + 1.0_dp) / (1.0_dp + (x500 / 0.6_dp)**2)**0.45_dp
+    end do
+    do j = 1 , jmax - 2
+        rhoGas(j+1) = rhoGas(j) * temperature(j) / temperature(j+1) * exp(-dr * Ggrav * massTotal(j+1) * mu * mp / (kBoltz * temperature(j) * r(j+1)**2))
+    end do
+    ! add turb term
+    do j = 1, jmax - 1
+        Pturb(j) = 1.0_dp / 3.0_dp * rhoGas(j) * velocity_turb **2
+    end do
+    do j = 1 , jmax - 2
+        rhoGasTurb(j+1) = mu * mp / (kBoltz * temperature(j+1)) * (rhoGasTurb(j) * kBoltz * temperature(j) / (mu * mp) - dr * rhoGasTurb(j) * Ggrav * massTotal(j+1) / r(j+1)**2 - (Pturb(j+1) - Pturb(j)))
+    end do
+
+
+    ! Integrate gas mass over shells
+    gasMass(1) = 0.0_dp
+    do j = 1, jmax - 1
+        gasMass(j+1) = gasMass(j) + rhoGasTurb(j) * shellVol(j)
+    end do
+
+    ! Scale the gas profile to reach the target baryon fraction
+    gasMassTarget = targetFb / (1.0_dp - targetFb) * massDM(jVir) - massBCG(jVir)
+    
+    rhoGas0 = rhoGas0 * (gasMassTarget / gasMass(jVir))
+    rhoGas  = rhoGas * (gasMassTarget / gasMass(jVir))
+    Pturb  = Pturb * (gasMassTarget / gasMass(jVir))
+    rhoGasTurb = rhoGasTurb * (gasMassTarget / gasMass(jVir))
+    gasMass = gasMass * (gasMassTarget / gasMass(jVir))
+    
+    fb = (gasMass(jVir) + massBCG(jVir)) / (massDM(jVir) + massBCG(jVir) + gasMass(jVir))
+    
+    write(*,*) "Baryon fraction with BCG =", fb
+
+    open(unit=30, file='gas_BCG_non-iso-turb.dat', status='replace', action='write')
+    do j = 1, jmax - 1
+        write(30, '(3(1pe24.16))') rHalf(j) / kpc, rhoGasTurb(j) , rhoNFW(j)
     end do
     close(30)
 
